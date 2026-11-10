@@ -1,0 +1,806 @@
+<title>Jet Quote Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: two-pane flight desk. Left = build the trip (aircraft, sectors, dates, extras). Right = live quote card, sticky, with copy buttons. Stacks on phones. */
+:root {
+  --bg: #EDF0F6;
+  --surface: #FFFFFF;
+  --surface-2: #F5F7FB;
+  --ink: #0E1726;
+  --muted: #5A6478;
+  --line: #D8DEE8;
+  --accent: #1F3FBF;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E3E8FB;
+  --brass: #8A5F0E;
+  --brass-soft: #F7EEDB;
+  --ok: #17784A;
+  --warn: #A3540A;
+  --warn-soft: #FCEBD9;
+  --danger: #B42318;
+  --shadow: 0 1px 2px rgba(14,23,38,.06), 0 8px 24px rgba(14,23,38,.06);
+  --f-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0A0F1A; --surface: #121A29; --surface-2: #172134; --ink: #E7ECF5; --muted: #95A2BA;
+    --line: #26324A; --accent: #8EA6FF; --accent-ink: #0A0F1A; --accent-soft: #1C2A52;
+    --brass: #E4B862; --brass-soft: #2E2615; --ok: #4CC38A; --warn: #F0A15A; --warn-soft: #33230F; --danger: #FF8A80;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0A0F1A; --surface: #121A29; --surface-2: #172134; --ink: #E7ECF5; --muted: #95A2BA;
+  --line: #26324A; --accent: #8EA6FF; --accent-ink: #0A0F1A; --accent-soft: #1C2A52;
+  --brass: #E4B862; --brass-soft: #2E2615; --ok: #4CC38A; --warn: #F0A15A; --warn-soft: #33230F; --danger: #FF8A80;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark { width: 40px; height: 40px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 22px; height: 22px; }
+.brand h1 { font-size: 22px; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Layout */
+.app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.panel-head h2 { font-size: 16px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+/* Controls */
+label.field { display: grid; gap: 6px; min-width: 0; }
+label.field > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+input, select { font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; width: 100%; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select { appearance: none; padding-right: 34px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.dashed { border-style: dashed; color: var(--accent); background: transparent; width: 100%; padding: 12px; }
+.btn.dashed:hover { background: var(--accent-soft); }
+.icon-btn { font: inherit; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--muted); cursor: pointer; width: 34px; height: 34px; display: grid; place-items: center; flex: none; }
+.icon-btn:hover { color: var(--danger); border-color: var(--line); }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+.icon-btn:disabled:hover { color: var(--muted); border-color: transparent; }
+
+/* Aircraft */
+.ac-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 560px) { .ac-row { grid-template-columns: minmax(0, 1fr); } }
+.specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.spec { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; min-width: 0; }
+.spec b { display: block; font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.spec span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+
+/* Sector strips */
+.strips { display: grid; gap: 10px; }
+.strip { display: grid; grid-template-columns: 30px minmax(0, 1fr) 24px minmax(0, 1fr) minmax(0, 140px) minmax(0, 150px) 34px; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); }
+.strip .seq, .strip .arrow { margin-top: 33px; }
+.strip .del { margin-top: 27px; }
+.strip .seq { font-family: var(--f-mono); font-weight: 700; color: var(--accent); font-size: 13px; text-align: center; }
+.strip .arrow { color: var(--muted); text-align: center; }
+.strip input.code { font-family: var(--f-mono); font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: .04em; background: var(--surface); }
+.strip input[type="date"], .strip input.bt { background: var(--surface); }
+.strip .city { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 17px; }
+.strip .meta { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.strip .bt-wrap { display: grid; gap: 6px; }
+.strip .bt-wrap > span, .strip label.field > span { font-size: 11px; }
+@media (max-width: 720px) {
+  .strip { grid-template-columns: 26px minmax(0, 1fr) 18px minmax(0, 1fr) 34px; }
+  .strip .date-f { grid-column: 2 / 3; }
+  .strip .bt-wrap { grid-column: 4 / 5; }
+  .strip .del { grid-row: 1; grid-column: 5; }
+  .strip .date-f, .strip .bt-wrap { grid-row: 2; }
+  .strip .meta { grid-row: 3; }
+}
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.chip.manual { background: var(--brass-soft); color: var(--brass); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Dates */
+.dates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+@media (max-width: 560px) { .dates { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .counter-f { grid-column: 1 / -1; } }
+.counter { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.counter button { font: inherit; font-size: 18px; width: 40px; height: 40px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.counter button:hover { background: var(--accent-soft); color: var(--accent); }
+.counter output { min-width: 84px; text-align: center; font-family: var(--f-mono); font-weight: 700; font-size: 15px; }
+
+/* Toggles list */
+.lines { display: grid; gap: 8px; }
+.line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.line.off { opacity: .55; }
+.line.off .amt { text-decoration: line-through; }
+.line .lbl { min-width: 0; }
+.line .lbl b { font-weight: 600; }
+.line .lbl small { display: block; color: var(--muted); font-size: 12px; }
+.line .amt { font-family: var(--f-mono); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.switch { position: relative; width: 36px; height: 20px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; width: 100%; height: 100%; z-index: 1; }
+.switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(16px); }
+.switch input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+.extra { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 160px) 34px; gap: 8px; align-items: center; }
+
+/* Quote card */
+.quote { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; display: grid; min-width: 0; }
+@media (max-width: 980px) { .quote { position: static; } }
+.q-head { padding: 18px 20px 14px; display: grid; gap: 6px; border-bottom: 1px dashed var(--line); }
+.q-head .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.q-head h2 { font-size: 20px; }
+.q-ref { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.q-route { font-family: var(--f-mono); font-weight: 700; font-size: 15px; letter-spacing: .03em; color: var(--accent); overflow-wrap: anywhere; }
+.q-body { padding: 14px 20px; display: grid; gap: 4px; }
+.q-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 7px 0; align-items: baseline; }
+.q-line .k { min-width: 0; }
+.q-line .k small { display: block; color: var(--muted); font-size: 12px; }
+.q-line .v { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.q-line.sub { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; }
+.q-total { margin: 4px 12px 12px; border-radius: 14px; background: var(--brass-soft); padding: 16px; display: grid; gap: 4px; }
+.q-total .eyebrow { color: var(--brass); }
+.q-total .big { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4vw, 36px); color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; overflow-wrap: anywhere; }
+.q-total small { color: var(--muted); font-size: 12px; }
+.q-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
+.q-preview { border-top: 1px solid var(--line); background: var(--surface-2); }
+.q-preview summary { cursor: pointer; padding: 12px 20px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.q-preview pre { margin: 0; padding: 0 20px 18px; font-family: var(--f-mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+.alerts { display: grid; gap: 6px; padding: 0 20px 12px; }
+.alert { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 10px; }
+
+/* Settings */
+details.settings > summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+details.settings > summary::-webkit-details-marker { display: none; }
+details.settings > summary::after { content: "+"; font-family: var(--f-mono); font-size: 18px; color: var(--muted); }
+details.settings[open] > summary::after { content: "−"; }
+.set-body { display: grid; gap: 16px; margin-top: 14px; }
+.tbl-wrap { overflow-x: auto; }
+table.set { border-collapse: collapse; width: 100%; min-width: 520px; }
+table.set th, table.set td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+table.set th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+table.set input { padding: 6px 8px; font-family: var(--f-mono); font-size: 13px; }
+.set-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .set-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .toast, .switch i, .switch i::after { transition: none; } }
+footer { color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+      </div>
+      <div>
+        <h1>Jet Quote Desk</h1>
+        <p>Build a charter quotation in under a minute. All amounts in ₹.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="btn-new" type="button">New quote</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <div class="col">
+      <!-- Aircraft -->
+      <section class="panel" aria-labelledby="h-ac">
+        <div class="panel-head"><h2 id="h-ac">Aircraft &amp; client</h2><span class="eyebrow">Step 1</span></div>
+        <div class="ac-row">
+          <label class="field"><span>Aircraft</span>
+            <select id="aircraft"></select>
+          </label>
+          <label class="field"><span>Client name (optional)</span>
+            <input id="client" type="text" placeholder="e.g. Mr. Mehta / ABC Industries" autocomplete="off">
+          </label>
+        </div>
+        <div class="specs" id="specs"></div>
+      </section>
+
+      <!-- Sectors -->
+      <section class="panel" aria-labelledby="h-sec">
+        <div class="panel-head"><h2 id="h-sec">Sectors</h2><span class="eyebrow">Step 2</span></div>
+        <p class="hint">Type an airport code (BOM, DEL…) or a city name. Block time is estimated from the great‑circle distance and the aircraft's cruise speed. Type over it (e.g. <span class="mono">2:10</span>) if ops gives you a different figure.</p>
+        <div class="strips" id="strips"></div>
+        <button class="btn dashed" id="add-sector" type="button">+ Add new sector</button>
+        <datalist id="airports"></datalist>
+      </section>
+
+      <!-- Dates -->
+      <section class="panel" aria-labelledby="h-dates">
+        <div class="panel-head"><h2 id="h-dates">Aircraft blocked</h2><span class="eyebrow">Step 3</span></div>
+        <div class="dates">
+          <label class="field"><span>From</span><input id="d-start" type="date"></label>
+          <label class="field"><span>To</span><input id="d-end" type="date"></label>
+          <div class="field counter-f"><span style="font-size:12px;font-weight:600;color:var(--muted)">Days blocked</span>
+            <div class="counter">
+              <button type="button" id="d-minus" aria-label="One day less">−</button>
+              <output id="d-count" class="num" aria-live="polite">1 day</output>
+              <button type="button" id="d-plus" aria-label="One day more">+</button>
+            </div>
+          </div>
+        </div>
+        <p class="hint">Days are counted inclusive of both dates. The counter moves the end date.</p>
+      </section>
+
+      <!-- Charges -->
+      <section class="panel" aria-labelledby="h-chg">
+        <div class="panel-head"><h2 id="h-chg">Ground handling &amp; crew</h2><span class="eyebrow">Step 4</span></div>
+        <p class="hint">Calculated automatically from the sectors and blocked days. Switch off anything that doesn't apply to this trip, such as handling at your home base.</p>
+        <div class="lines" id="gh-lines"></div>
+        <div class="lines" id="lbt-line"></div>
+        <div class="panel-head" style="margin-top:4px"><h3 style="font-size:14px">Other charges</h3></div>
+        <div class="lines" id="extras"></div>
+        <button class="btn dashed" id="add-extra" type="button">+ Add a charge (catering, permits, positioning…)</button>
+      </section>
+
+      <!-- Settings -->
+      <section class="panel">
+        <details class="settings" id="settings">
+          <summary><div><h2 style="font-size:16px">Rates &amp; settings</h2><p class="hint">Update hourly rates when fuel prices change. Saved in this browser.</p></div></summary>
+          <div class="set-body">
+            <div class="tbl-wrap">
+              <table class="set" id="set-ac">
+                <thead><tr><th>Aircraft</th><th>Speed (kt)</th><th>Rate / hr (₹)</th><th>Crew LBT / day (₹)</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="tbl-wrap">
+              <table class="set" id="set-gh">
+                <thead><tr><th>Ground handling (₹)</th><th>Challenger 604 / 605</th><th>Citation CJ2+</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="set-grid">
+              <label class="field"><span>Routing factor (airways vs straight line)</span><input id="set-factor" type="number" step="0.01" min="1" max="1.5"></label>
+              <label class="field"><span>Taxi + climb/descent allowance (min / sector)</span><input id="set-taxi" type="number" step="1" min="0" max="90"></label>
+              <label class="field"><span>Round block time up to (min)</span><input id="set-round" type="number" step="1" min="1" max="30"></label>
+            </div>
+            <div><button class="btn" id="set-reset" type="button">Reset to standard rates</button></div>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <!-- Quote -->
+    <aside class="quote" aria-labelledby="q-title">
+      <div class="q-head">
+        <div class="row"><span class="eyebrow">Charter quotation</span><span class="q-ref" id="q-ref"></span></div>
+        <h2 id="q-title">VT-ZST</h2>
+        <div class="q-route" id="q-route"></div>
+        <div class="hint" id="q-sub"></div>
+      </div>
+      <div class="q-body" id="q-body"></div>
+      <div class="alerts" id="q-alerts"></div>
+      <div class="q-total">
+        <span class="eyebrow">Grand total incl. GST</span>
+        <div class="big" id="q-grand">₹0</div>
+        <small id="q-grand-words"></small>
+      </div>
+      <div class="q-actions">
+        <button class="btn primary" id="copy-wa" type="button">Copy for WhatsApp</button>
+        <button class="btn" id="copy-plain" type="button">Copy for email</button>
+      </div>
+      <details class="q-preview" id="q-preview-d">
+        <summary>Preview the copied text</summary>
+        <pre id="q-text"></pre>
+      </details>
+    </aside>
+  </main>
+  <footer>Block times are estimates for quoting. Confirm final timings with flight ops before issuing a firm quote.</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Standard data ---------- */
+  var DEFAULTS = {
+    aircraft: {
+      NDA: { reg: "VT-NDA", type: "Cessna Citation CJ2+", speed: 290, rate: 265000, lbt: 40000, ghClass: "light" },
+      ZST: { reg: "VT-ZST", type: "Bombardier Challenger 604", speed: 400, rate: 630000, lbt: 70000, ghClass: "heavy" },
+      APL: { reg: "VT-APL", type: "Bombardier Challenger 605", speed: 400, rate: 630000, lbt: 70000, ghClass: "heavy" }
+    },
+    gh: {
+      heavy: { Mumbai: 300000, Delhi: 200000, Ahmedabad: 200000, Jaipur: 200000, Other: 80000 },
+      light: { Mumbai: 150000, Delhi: 100000, Ahmedabad: 100000, Jaipur: 100000, Other: 40000 }
+    },
+    factor: 1.08,   // airways routing vs great circle
+    taxi: 15,       // minutes per sector for taxi, climb & descent
+    round: 5        // round each sector up to this many minutes
+  };
+  var GH_CITY = { BOM: "Mumbai", NMI: "Mumbai", DEL: "Delhi", AMD: "Ahmedabad", JAI: "Jaipur" };
+  var GST_RATE = 0.18;
+
+  // IATA: [city / airport, lat, lon]
+  var AP = {
+    BOM:["Mumbai",19.0887,72.8679], NMI:["Navi Mumbai",18.9950,73.0700], DEL:["Delhi",28.5562,77.1000],
+    AMD:["Ahmedabad",23.0772,72.6347], JAI:["Jaipur",26.8242,75.8122], BLR:["Bengaluru",13.1986,77.7066],
+    MAA:["Chennai",12.9941,80.1709], HYD:["Hyderabad",17.2403,78.4294], CCU:["Kolkata",22.6547,88.4467],
+    GOI:["Goa (Dabolim)",15.3808,73.8314], GOX:["Goa (Mopa)",15.7444,73.8606], PNQ:["Pune",18.5821,73.9197],
+    COK:["Kochi",10.1520,76.4019], TRV:["Thiruvananthapuram",8.4821,76.9201], CCJ:["Kozhikode",11.1368,75.9553],
+    CNN:["Kannur",11.9186,75.5472], IXE:["Mangaluru",12.9613,74.8901], LKO:["Lucknow",26.7606,80.8893],
+    VNS:["Varanasi",25.4524,82.8593], PAT:["Patna",25.5913,85.0880], GAU:["Guwahati",26.1061,91.5859],
+    BBI:["Bhubaneswar",20.2444,85.8178], IXR:["Ranchi",23.3143,85.3217], RPR:["Raipur",21.1804,81.7388],
+    NAG:["Nagpur",21.0922,79.0472], IDR:["Indore",22.7218,75.8011], BHO:["Bhopal",23.2875,77.3374],
+    UDR:["Udaipur",24.6177,73.8961], JDH:["Jodhpur",26.2511,73.0489], IXC:["Chandigarh",30.6735,76.7885],
+    ATQ:["Amritsar",31.7096,74.7973], SXR:["Srinagar",33.9871,74.7742], IXJ:["Jammu",32.6891,74.8374],
+    IXL:["Leh",34.1359,77.5465], DED:["Dehradun",30.1897,78.1803], STV:["Surat",21.1141,72.7418],
+    BDQ:["Vadodara",22.3362,73.2263], HSR:["Rajkot (Hirasar)",22.3800,71.0300], BHJ:["Bhuj",23.2878,69.6702],
+    JGA:["Jamnagar",22.4655,70.0126], PBD:["Porbandar",21.6487,69.6572], DIU:["Diu",20.7131,70.9211],
+    BHU:["Bhavnagar",21.7522,72.1852], IXY:["Kandla",23.1127,70.1003], IXZ:["Port Blair",11.6412,92.7297],
+    VTZ:["Visakhapatnam",17.7212,83.2245], VGA:["Vijayawada",16.5304,80.7968], TIR:["Tirupati",13.6325,79.5433],
+    RJA:["Rajahmundry",17.1104,81.8182], CJB:["Coimbatore",11.0300,77.0434], IXM:["Madurai",9.8345,78.0934],
+    TRZ:["Tiruchirappalli",10.7654,78.7097], TCR:["Tuticorin",8.7242,78.0258], IXB:["Bagdogra",26.6812,88.3286],
+    IXA:["Agartala",23.8870,91.2404], IMF:["Imphal",24.7600,93.8967], DIB:["Dibrugarh",27.4839,95.0169],
+    JRH:["Jorhat",26.7315,94.1755], IXS:["Silchar",24.9129,92.9787], SHL:["Shillong",25.7036,91.9787],
+    GAY:["Gaya",24.7443,84.9512], DGH:["Deoghar",24.4440,86.7020], DBR:["Darbhanga",26.1947,85.9175],
+    AGR:["Agra",27.1558,77.9609], KNU:["Kanpur",26.4045,80.4101], IXD:["Prayagraj",25.4401,81.7339],
+    GOP:["Gorakhpur",26.7397,83.4497], AYJ:["Ayodhya",26.7486,82.1508], IXU:["Aurangabad",19.8627,75.3981],
+    NDC:["Nanded",19.1833,77.3167], ISK:["Nashik",20.1191,73.9129], KLH:["Kolhapur",16.6647,74.2894],
+    SAG:["Shirdi",19.6886,74.3789], HBX:["Hubballi",15.3617,75.0849], IXG:["Belagavi",15.8593,74.6183],
+    MYQ:["Mysuru",12.2300,76.6558], PYG:["Puttaparthi",14.1493,77.7911], DHM:["Dharamshala",32.1651,76.2634],
+    KUU:["Kullu (Bhuntar)",31.8767,77.1544], SLV:["Shimla",31.0818,77.0680], PGH:["Pantnagar",29.0334,79.4737],
+    GWL:["Gwalior",26.2933,78.2278], JLR:["Jabalpur",23.1778,80.0520], HJR:["Khajuraho",24.8172,79.9186],
+    BKB:["Bikaner",28.0706,73.2072], JSA:["Jaisalmer",26.8887,70.8650], JRG:["Jharsuguda",21.9135,84.0504],
+    AGX:["Agatti",10.8237,72.1760],
+    DXB:["Dubai",25.2532,55.3657], DWC:["Dubai (Al Maktoum)",24.8960,55.1614], AUH:["Abu Dhabi",24.4330,54.6511],
+    SHJ:["Sharjah",25.3286,55.5172], DOH:["Doha",25.2731,51.6081], MCT:["Muscat",23.5933,58.2844],
+    BAH:["Bahrain",26.2708,50.6336], RUH:["Riyadh",24.9576,46.6988], JED:["Jeddah",21.6796,39.1565],
+    KTM:["Kathmandu",27.6966,85.3591], CMB:["Colombo",7.1808,79.8841], MLE:["Malé",4.1918,73.5291],
+    DAC:["Dhaka",23.8433,90.3978], PBH:["Paro",27.4032,89.4246], SIN:["Singapore",1.3644,103.9915],
+    BKK:["Bangkok",13.6900,100.7501], HKT:["Phuket",8.1132,98.3169], KUL:["Kuala Lumpur",2.7456,101.7099],
+    DPS:["Bali",-8.7482,115.1672], HKG:["Hong Kong",22.3080,113.9185], SEZ:["Seychelles",-4.6743,55.5218],
+    NBO:["Nairobi",-1.3192,36.9278], IST:["Istanbul",41.2753,28.7519], LHR:["London Heathrow",51.4700,-0.4543],
+    LTN:["London Luton",51.8747,-0.3683], LBG:["Paris Le Bourget",48.9694,2.4414], GVA:["Geneva",46.2381,6.1089],
+    NCE:["Nice",43.6584,7.2159], ZRH:["Zurich",47.4647,8.5492], MXP:["Milan",45.6306,8.7281], FRA:["Frankfurt",50.0379,8.5622]
+  };
+
+  /* ---------- Settings (per browser) ---------- */
+  var KEY = "jqd-settings-v1";
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  var S = clone(DEFAULTS);
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && saved.aircraft && saved.gh) S = Object.assign(clone(DEFAULTS), saved);
+  } catch (e) {}
+  function saveSettings() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  /* ---------- Helpers ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  function inr(n) { return "₹" + Math.round(n).toLocaleString("en-IN"); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function hm(min) { var h = Math.floor(min / 60), m = Math.round(min % 60); return h + "h " + String(m).padStart(2, "0") + "m"; }
+  function hrs(min) { return (min / 60).toFixed(2); }
+  function toISO(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function fromISO(s) { if (!s) return null; var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function fmtDate(s, withYear) { var d = fromISO(s); if (!d) return ""; return d.toLocaleDateString("en-IN", withYear === false ? { day: "2-digit", month: "short" } : { day: "2-digit", month: "short", year: "numeric" }); }
+  function resolve(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    var u = s.toUpperCase();
+    if (AP[u]) return u;
+    var low = s.toLowerCase();
+    for (var k in AP) if (AP[k][0].toLowerCase() === low) return k;
+    for (var k2 in AP) if (AP[k2][0].toLowerCase().indexOf(low) === 0 && low.length >= 3) return k2;
+    return u;
+  }
+  function nm(a, b) {
+    var R = 3440.065, rad = Math.PI / 180;
+    var la1 = AP[a][1] * rad, la2 = AP[b][1] * rad, dl = (AP[b][2] - AP[a][2]) * rad, dp = la2 - la1;
+    var h = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(la1) * Math.cos(la2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function parseBT(s) {
+    s = String(s || "").trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{1,2})\s*[:h.]\s*(\d{1,2})\s*m?$/i);
+    if (m && s.indexOf(".") === -1) return (+m[1]) * 60 + (+m[2]);
+    if (/^\d+(\.\d+)?$/.test(s)) return Math.round(parseFloat(s) * 60); // decimal hours
+    if (m) return (+m[1]) * 60 + (+m[2]);
+    return NaN;
+  }
+  function ghRate(code) {
+    var cls = S.aircraft[state.aircraft].ghClass;
+    var city = GH_CITY[code] || "Other";
+    return { city: city, amount: S.gh[cls][city] };
+  }
+
+  /* ---------- Trip state ---------- */
+  var state;
+  function freshState() {
+    var start = addDays(new Date(), 2), end = addDays(start, 2);
+    return {
+      ref: "Q-" + toISO(new Date()).replace(/-/g, "").slice(2) + "-" + String(Math.floor(Math.random() * 900) + 100),
+      aircraft: "ZST", client: "",
+      sectors: [
+        { from: "BOM", to: "DEL", date: toISO(start), bt: "" },
+        { from: "DEL", to: "BOM", date: toISO(end), bt: "" }
+      ],
+      start: toISO(start), end: toISO(end), days: 3,
+      lbtOn: true, ghOff: {}, extras: []
+    };
+  }
+  state = freshState();
+
+  /* ---------- Computation ---------- */
+  function sectorCalc(s) {
+    var a = resolve(s.from), b = resolve(s.to), ac = S.aircraft[state.aircraft];
+    var out = { from: a, to: b, dist: null, est: null, min: null, mode: "missing" };
+    if (a && b && AP[a] && AP[b] && a !== b) {
+      out.dist = nm(a, b);
+      var raw = (out.dist * S.factor / ac.speed) * 60 + Number(S.taxi);
+      var r = Math.max(1, Number(S.round) || 1);
+      out.est = Math.ceil(raw / r) * r;
+    }
+    var ov = parseBT(s.bt);
+    if (ov !== null && !isNaN(ov) && ov > 0) { out.min = ov; out.mode = "manual"; }
+    else if (out.est !== null) { out.min = out.est; out.mode = "est"; }
+    else if (a && b && a === b) out.mode = "same";
+    else if (a && b) out.mode = "unknown";
+    if (ov !== null && isNaN(ov)) out.badBT = true;
+    return out;
+  }
+
+  function compute() {
+    var ac = S.aircraft[state.aircraft];
+    var secs = state.sectors.map(sectorCalc);
+    var totalMin = secs.reduce(function (t, s) { return t + (s.min || 0); }, 0);
+    var flying = (totalMin / 60) * ac.rate;
+
+    var stations = [];
+    secs.forEach(function (s) { [s.from, s.to].forEach(function (c) { if (c && stations.indexOf(c) === -1) stations.push(c); }); });
+    var gh = stations.map(function (c) { var r = ghRate(c); return { code: c, city: r.city, amount: r.amount, on: !state.ghOff[c] }; });
+    var ghTotal = gh.reduce(function (t, g) { return t + (g.on ? g.amount : 0); }, 0);
+
+    var lbt = state.lbtOn ? state.days * ac.lbt : 0;
+    var extras = state.extras.filter(function (x) { return Number(x.amount) > 0; });
+    var extraTotal = extras.reduce(function (t, x) { return t + Number(x.amount); }, 0);
+    var subtotal = flying + ghTotal + lbt + extraTotal;
+    var gst = subtotal * GST_RATE;
+    var alerts = [];
+    secs.forEach(function (s, i) {
+      if (s.mode === "unknown") alerts.push("Sector " + (i + 1) + ": " + s.from + " or " + s.to + " isn't in the airport list. Type the block time manually.");
+      if (s.mode === "same") alerts.push("Sector " + (i + 1) + ": departure and arrival are the same airport.");
+      if (s.badBT) alerts.push("Sector " + (i + 1) + ": block time should look like 2:10 (h:mm) or 2.2 (decimal hours).");
+    });
+    return { ac: ac, secs: secs, totalMin: totalMin, flying: flying, gh: gh, ghTotal: ghTotal, lbt: lbt, extras: extras, extraTotal: extraTotal, subtotal: subtotal, gst: gst, grand: subtotal + gst, alerts: alerts };
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderAircraftSelect() {
+    $("aircraft").innerHTML = Object.keys(S.aircraft).map(function (k) {
+      var a = S.aircraft[k]; return '<option value="' + k + '">' + a.reg + " · " + a.type + "</option>";
+    }).join("");
+    $("aircraft").value = state.aircraft;
+  }
+  function renderSpecs() {
+    var a = S.aircraft[state.aircraft];
+    $("specs").innerHTML =
+      '<div class="spec"><span>Cruise</span><b>' + a.speed + " kt</b></div>" +
+      '<div class="spec"><span>Per hour</span><b>' + inr(a.rate) + "</b></div>" +
+      '<div class="spec"><span>Crew LBT / day</span><b>' + inr(a.lbt) + "</b></div>" +
+      '<div class="spec"><span>Handling class</span><b>' + (a.ghClass === "heavy" ? "Large jet" : "Light jet") + "</b></div>";
+  }
+  function renderDatalist() {
+    $("airports").innerHTML = Object.keys(AP).map(function (k) { return '<option value="' + k + '">' + esc(AP[k][0]) + "</option>"; }).join("");
+  }
+  function renderStrips() {
+    var only = state.sectors.length === 1;
+    $("strips").innerHTML = state.sectors.map(function (s, i) {
+      return '<div class="strip" data-i="' + i + '">' +
+        '<div class="seq">' + String(i + 1).padStart(2, "0") + "</div>" +
+        '<label class="field"><span>From</span><input class="code" id="s' + i + '-from" data-f="from" list="airports" value="' + esc(s.from) + '" placeholder="BOM" autocomplete="off" spellcheck="false"><div class="city" id="s' + i + '-fromc"></div></label>' +
+        '<div class="arrow" aria-hidden="true">→</div>' +
+        '<label class="field"><span>To</span><input class="code" id="s' + i + '-to" data-f="to" list="airports" value="' + esc(s.to) + '" placeholder="DEL" autocomplete="off" spellcheck="false"><div class="city" id="s' + i + '-toc"></div></label>' +
+        '<label class="field date-f"><span>Date</span><input type="date" id="s' + i + '-date" data-f="date" value="' + esc(s.date) + '"></label>' +
+        '<label class="field bt-wrap"><span>Block time</span><input class="bt mono" id="s' + i + '-bt" data-f="bt" value="' + esc(s.bt) + '" placeholder="auto" inputmode="decimal" autocomplete="off"></label>' +
+        '<button class="icon-btn del" type="button" data-del="' + i + '" aria-label="Remove sector ' + (i + 1) + '"' + (only ? " disabled" : "") + '>' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
+        '<div class="meta" id="s' + i + '-meta"></div>' +
+        "</div>";
+    }).join("");
+  }
+  function updateStripMeta(c) {
+    c.secs.forEach(function (s, i) {
+      var fc = $("s" + i + "-fromc"), tc = $("s" + i + "-toc"), meta = $("s" + i + "-meta"), bt = $("s" + i + "-bt");
+      if (!meta) return;
+      fc.textContent = AP[s.from] ? AP[s.from][0] : (s.from ? "Not in list" : "");
+      tc.textContent = AP[s.to] ? AP[s.to][0] : (s.to ? "Not in list" : "");
+      bt.placeholder = s.est !== null ? hm(s.est).replace("h ", ":").replace("m", "") : "h:mm";
+      var parts = [];
+      if (s.dist !== null) parts.push('<span class="mono">' + Math.round(s.dist) + " NM</span>");
+      if (s.mode === "est") parts.push('<span class="chip"><span class="dot"></span>Est. ' + hm(s.min) + "</span>");
+      else if (s.mode === "manual") parts.push('<span class="chip manual"><span class="dot"></span>Manual ' + hm(s.min) + "</span>" + (s.est !== null ? "<span>auto was " + hm(s.est) + "</span>" : ""));
+      else if (s.mode === "unknown") parts.push('<span class="chip warn"><span class="dot"></span>Enter block time</span>');
+      else if (s.mode === "same") parts.push('<span class="chip warn"><span class="dot"></span>Same airport</span>');
+      else parts.push("<span>Add both airports</span>");
+      if (s.min) parts.push('<span class="mono">' + inr((s.min / 60) * c.ac.rate) + "</span>");
+      meta.innerHTML = parts.join("");
+    });
+  }
+  function renderCharges(c) {
+    $("gh-lines").innerHTML = c.gh.length ? c.gh.map(function (g) {
+      return '<div class="line' + (g.on ? "" : " off") + '">' +
+        '<label class="switch"><input type="checkbox" id="gh-' + esc(g.code) + '" data-gh="' + esc(g.code) + '"' + (g.on ? " checked" : "") + ' aria-label="Charge ground handling at ' + esc(g.code) + '"><i></i></label>' +
+        '<div class="lbl"><b>Ground handling · <span class="mono">' + esc(g.code) + "</span></b><small>" + esc(AP[g.code] ? AP[g.code][0] : "Unlisted airport") + " · " + (g.city === "Other" ? "standard rate" : g.city + " rate") + "</small></div>" +
+        '<div class="amt">' + inr(g.amount) + "</div></div>";
+    }).join("") : '<p class="hint">Add sectors to see ground handling.</p>';
+    $("lbt-line").innerHTML =
+      '<div class="line' + (state.lbtOn ? "" : " off") + '">' +
+      '<label class="switch"><input type="checkbox" id="lbt-on"' + (state.lbtOn ? " checked" : "") + ' aria-label="Include crew LBT"><i></i></label>' +
+      '<div class="lbl"><b>Crew LBT</b><small>' + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + "</small></div>" +
+      '<div class="amt">' + inr(state.days * c.ac.lbt) + "</div></div>";
+  }
+  function renderExtras() {
+    $("extras").innerHTML = state.extras.map(function (x, i) {
+      return '<div class="extra" data-x="' + i + '">' +
+        '<input id="x' + i + '-label" data-xf="label" value="' + esc(x.label) + '" placeholder="Description" autocomplete="off">' +
+        '<input id="x' + i + '-amount" data-xf="amount" class="mono" type="number" min="0" step="1000" value="' + esc(x.amount) + '" placeholder="Amount ₹">' +
+        '<button class="icon-btn" type="button" data-xdel="' + i + '" aria-label="Remove charge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>';
+    }).join("");
+  }
+  function renderDays() {
+    $("d-start").value = state.start || "";
+    $("d-end").value = state.end || "";
+    $("d-count").textContent = state.days + " day" + (state.days > 1 ? "s" : "");
+  }
+
+  function routeString(secs) {
+    var r = [];
+    secs.forEach(function (s, i) {
+      if (!s.from && !s.to) return;
+      if (i === 0 || s.from !== secs[i - 1].to) { if (r.length) r.push(" / "); r.push(s.from || "???"); }
+      r.push(" → " + (s.to || "???"));
+    });
+    return r.join("");
+  }
+
+  function words(n) {
+    n = Math.round(n);
+    if (n >= 1e7) return "≈ " + (n / 1e7).toFixed(2) + " crore";
+    if (n >= 1e5) return "≈ " + (n / 1e5).toFixed(2) + " lakh";
+    return "";
+  }
+
+  function buildText(c, wa) {
+    var b = function (t) { return wa ? "*" + t + "*" : t; };
+    var L = [];
+    L.push(b("PRIVATE JET CHARTER QUOTATION"));
+    L.push("Ref: " + state.ref);
+    if (state.client.trim()) L.push("Client: " + state.client.trim());
+    L.push("Aircraft: " + c.ac.reg + " (" + c.ac.type + ")");
+    if (state.start && state.end) L.push("Aircraft blocked: " + fmtDate(state.start) + " to " + fmtDate(state.end) + " (" + state.days + " day" + (state.days > 1 ? "s" : "") + ")");
+    L.push("");
+    L.push(b("Itinerary"));
+    c.secs.forEach(function (s, i) {
+      var d = state.sectors[i].date ? fmtDate(state.sectors[i].date, false) + "  " : "";
+      var nameF = AP[s.from] ? " (" + AP[s.from][0] + ")" : "", nameT = AP[s.to] ? " (" + AP[s.to][0] + ")" : "";
+      L.push((i + 1) + ". " + d + (s.from || "—") + nameF + " → " + (s.to || "—") + nameT + "  ·  " + (s.min ? hm(s.min) : "TBC"));
+    });
+    L.push("Total flying time: " + hm(c.totalMin) + " (" + hrs(c.totalMin) + " hrs)");
+    L.push("");
+    L.push(b("Charges"));
+    L.push("Flying: " + hrs(c.totalMin) + " hrs × " + inr(c.ac.rate) + " = " + inr(c.flying));
+    var ghOn = c.gh.filter(function (g) { return g.on; });
+    if (ghOn.length) L.push("Ground handling (" + ghOn.map(function (g) { return g.code; }).join(", ") + "): " + inr(c.ghTotal));
+    if (state.lbtOn) L.push("Crew LBT: " + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + " = " + inr(c.lbt));
+    c.extras.forEach(function (x) { L.push((x.label.trim() || "Other charges") + ": " + inr(x.amount)); });
+    L.push("");
+    L.push("Subtotal: " + inr(c.subtotal));
+    L.push("GST @ 18%: " + inr(c.gst));
+    L.push(b("Grand total: " + inr(c.grand)));
+    L.push("");
+    L.push("Flying time is estimated and billed on actual block hours. Quote subject to aircraft availability and slot/ATC approvals.");
+    return L.join("\n");
+  }
+
+  function renderQuote(c) {
+    $("q-ref").textContent = state.ref;
+    $("q-title").textContent = c.ac.reg + " · " + c.ac.type.replace("Bombardier ", "").replace("Cessna ", "");
+    $("q-route").textContent = routeString(c.secs) || "Add a sector";
+    var sub = [];
+    if (state.client.trim()) sub.push(state.client.trim());
+    if (state.start && state.end) sub.push(fmtDate(state.start, false) + " – " + fmtDate(state.end) + " · " + state.days + " day" + (state.days > 1 ? "s" : ""));
+    $("q-sub").textContent = sub.join(" · ");
+
+    var rows = [];
+    rows.push(['Flying time<small>' + c.secs.filter(function (s) { return s.min; }).length + " sector(s) · " + hm(c.totalMin) + " = " + hrs(c.totalMin) + " hrs × " + inr(c.ac.rate) + "</small>", inr(c.flying)]);
+    var ghOn = c.gh.filter(function (g) { return g.on; });
+    rows.push(["Ground handling<small>" + (ghOn.length ? ghOn.map(function (g) { return g.code + " " + inr(g.amount); }).join(" · ") : "None") + "</small>", inr(c.ghTotal)]);
+    if (state.lbtOn) rows.push(["Crew LBT<small>" + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + "</small>", inr(c.lbt)]);
+    c.extras.forEach(function (x) { rows.push([esc(x.label.trim() || "Other charges"), inr(x.amount)]); });
+    var html = rows.map(function (r) { return '<div class="q-line"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + "</div></div>"; }).join("");
+    html += '<div class="q-line sub"><div class="k">Subtotal</div><div class="v">' + inr(c.subtotal) + "</div></div>";
+    html += '<div class="q-line"><div class="k">GST @ 18%</div><div class="v">' + inr(c.gst) + "</div></div>";
+    $("q-body").innerHTML = html;
+    $("q-alerts").innerHTML = c.alerts.map(function (a) { return '<div class="alert">' + esc(a) + "</div>"; }).join("");
+    $("q-grand").textContent = inr(c.grand);
+    $("q-grand-words").textContent = [words(c.grand), "Subtotal " + inr(c.subtotal) + " + GST " + inr(c.gst)].filter(Boolean).join(" · ");
+    $("q-text").textContent = buildText(c, true);
+  }
+
+  function refresh() {
+    var c = compute();
+    updateStripMeta(c);
+    renderCharges(c);
+    renderQuote(c);
+  }
+  function renderAll() {
+    renderAircraftSelect(); renderSpecs(); renderStrips(); renderExtras(); renderDays();
+    $("client").value = state.client;
+    renderSettings();
+    refresh();
+  }
+
+  /* ---------- Settings UI ---------- */
+  function renderSettings() {
+    $("set-ac").querySelector("tbody").innerHTML = Object.keys(S.aircraft).map(function (k) {
+      var a = S.aircraft[k];
+      return "<tr><td><b class='mono'>" + a.reg + "</b><br><small class='hint'>" + a.type + "</small></td>" +
+        "<td><input type='number' min='100' step='5' id='sa-" + k + "-speed' data-sa='" + k + "' data-k='speed' value='" + a.speed + "'></td>" +
+        "<td><input type='number' min='0' step='5000' id='sa-" + k + "-rate' data-sa='" + k + "' data-k='rate' value='" + a.rate + "'></td>" +
+        "<td><input type='number' min='0' step='1000' id='sa-" + k + "-lbt' data-sa='" + k + "' data-k='lbt' value='" + a.lbt + "'></td></tr>";
+    }).join("");
+    $("set-gh").querySelector("tbody").innerHTML = ["Mumbai", "Delhi", "Ahmedabad", "Jaipur", "Other"].map(function (city) {
+      return "<tr><td>" + (city === "Other" ? "All other airports" : city) + "</td>" +
+        "<td><input type='number' min='0' step='5000' id='sg-heavy-" + city + "' data-sg='heavy' data-k='" + city + "' value='" + S.gh.heavy[city] + "'></td>" +
+        "<td><input type='number' min='0' step='5000' id='sg-light-" + city + "' data-sg='light' data-k='" + city + "' value='" + S.gh.light[city] + "'></td></tr>";
+    }).join("");
+    $("set-factor").value = S.factor; $("set-taxi").value = S.taxi; $("set-round").value = S.round;
+  }
+  document.querySelector(".set-body").addEventListener("input", function (e) {
+    var t = e.target, v = Number(t.value);
+    if (t.value === "" || isNaN(v)) return;
+    if (t.dataset.sa) S.aircraft[t.dataset.sa][t.dataset.k] = v;
+    else if (t.dataset.sg) S.gh[t.dataset.sg][t.dataset.k] = v;
+    else if (t.id === "set-factor") S.factor = v;
+    else if (t.id === "set-taxi") S.taxi = v;
+    else if (t.id === "set-round") S.round = v;
+    else return;
+    saveSettings(); renderSpecs(); refresh();
+  });
+  $("set-reset").addEventListener("click", function () {
+    S = clone(DEFAULTS); try { localStorage.removeItem(KEY); } catch (e) {}
+    renderSettings(); renderSpecs(); refresh(); toast("Standard rates restored");
+  });
+
+  /* ---------- Events ---------- */
+  $("aircraft").addEventListener("change", function (e) { state.aircraft = e.target.value; renderSpecs(); refresh(); });
+  $("client").addEventListener("input", function (e) { state.client = e.target.value; refresh(); });
+
+  $("strips").addEventListener("input", function (e) {
+    var t = e.target, row = t.closest(".strip"); if (!row || !t.dataset.f) return;
+    state.sectors[+row.dataset.i][t.dataset.f] = t.value; refresh();
+  });
+  $("strips").addEventListener("change", function (e) {
+    var t = e.target, row = t.closest(".strip"); if (!row) return;
+    if (t.classList.contains("code")) {
+      var r = resolve(t.value); if (AP[r]) { t.value = r; state.sectors[+row.dataset.i][t.dataset.f] = r; }
+      else t.value = t.value.toUpperCase();
+      refresh();
+    }
+  });
+  $("strips").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-del]"); if (!btn || btn.disabled) return;
+    state.sectors.splice(+btn.dataset.del, 1); renderStrips(); refresh();
+  });
+  $("add-sector").addEventListener("click", function () {
+    var last = state.sectors[state.sectors.length - 1];
+    var from = last ? resolve(last.to) : "";
+    var date = last && last.date ? last.date : state.start;
+    state.sectors.push({ from: from, to: "", date: date || "", bt: "" });
+    renderStrips(); refresh();
+    var el = $("s" + (state.sectors.length - 1) + (from ? "-to" : "-from")); if (el) el.focus();
+  });
+
+  function syncDays() {
+    var a = fromISO(state.start), b = fromISO(state.end);
+    if (a && b) {
+      if (b < a) { state.end = state.start; b = a; }
+      state.days = Math.round((b - a) / 864e5) + 1;
+    }
+    renderDays(); refresh();
+  }
+  $("d-start").addEventListener("change", function (e) {
+    var old = fromISO(state.start); state.start = e.target.value;
+    if (state.start && (!state.end || !old)) state.end = toISO(addDays(fromISO(state.start), state.days - 1));
+    syncDays();
+  });
+  $("d-end").addEventListener("change", function (e) { state.end = e.target.value; syncDays(); });
+  function step(n) {
+    state.days = Math.max(1, state.days + n);
+    if (state.start) state.end = toISO(addDays(fromISO(state.start), state.days - 1));
+    renderDays(); refresh();
+  }
+  $("d-minus").addEventListener("click", function () { step(-1); });
+  $("d-plus").addEventListener("click", function () { step(1); });
+
+  document.querySelector(".col").addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.dataset.gh) { if (t.checked) delete state.ghOff[t.dataset.gh]; else state.ghOff[t.dataset.gh] = true; refresh(); }
+    if (t.id === "lbt-on") { state.lbtOn = t.checked; refresh(); }
+  });
+
+  $("extras").addEventListener("input", function (e) {
+    var t = e.target, row = t.closest("[data-x]"); if (!row) return;
+    state.extras[+row.dataset.x][t.dataset.xf] = t.value; refresh();
+  });
+  $("extras").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-xdel]"); if (!b) return;
+    state.extras.splice(+b.dataset.xdel, 1); renderExtras(); refresh();
+  });
+  $("add-extra").addEventListener("click", function () {
+    state.extras.push({ label: "", amount: "" }); renderExtras(); refresh();
+    var el = $("x" + (state.extras.length - 1) + "-label"); if (el) el.focus();
+  });
+
+  $("btn-new").addEventListener("click", function () {
+    state = freshState();
+    state.sectors = [{ from: "", to: "", date: state.start, bt: "" }];
+    renderAll(); toast("New quote started"); var el = $("s0-from"); if (el) el.focus();
+  });
+
+  /* ---------- Copy ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+  function fallbackCopy(text) {
+    var pre = $("q-text"); pre.textContent = text; $("q-preview-d").open = true;
+    var range = document.createRange(); range.selectNodeContents(pre);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    toast(ok ? "Quote copied" : "Text selected. Press Ctrl+C / ⌘C to copy");
+  }
+  function copy(wa) {
+    var text = buildText(compute(), wa);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(wa ? "Copied. Paste into WhatsApp" : "Copied. Paste into your email"); }, function () { fallbackCopy(text); });
+    } else fallbackCopy(text);
+  }
+  $("copy-wa").addEventListener("click", function () { copy(true); });
+  $("copy-plain").addEventListener("click", function () { copy(false); });
+
+  renderDatalist();
+  renderAll();
+
+  // expose for testing
+  window.__jqd = { compute: compute, state: function () { return state; }, nm: nm, AP: AP };
+})();
+</script>
