@@ -265,7 +265,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       <!-- Charges -->
       <section class="panel" aria-labelledby="h-chg">
         <div class="panel-head"><h2 id="h-chg">Ground handling &amp; crew</h2><span class="eyebrow">Step 4</span></div>
-        <p class="hint">Calculated automatically from the sectors and blocked days. Switch off anything that doesn't apply to this trip, such as handling at your home base.</p>
+        <p class="hint">Calculated automatically from the sectors and blocked days. One handling covers one arrival and one departure at an airport, so a station used twice is charged twice. Switch off anything that doesn't apply, such as handling at your home base.</p>
         <div class="lines" id="gh-lines"></div>
         <div class="lines" id="lbt-line"></div>
         <div class="panel-head" style="margin-top:4px"><h3 style="font-size:14px">Other charges</h3></div>
@@ -489,9 +489,15 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     var totalMin = secs.reduce(function (t, s) { return t + (s.min || 0); }, 0);
     var flying = (totalMin / 60) * ac.rate;
 
-    var stations = [];
-    secs.forEach(function (s) { [s.from, s.to].forEach(function (c) { if (c && stations.indexOf(c) === -1) stations.push(c); }); });
-    var gh = stations.map(function (c) { var r = ghRate(c); return { code: c, city: r.city, amount: r.amount, on: !state.ghOff[c] }; });
+    // One ground handling = one arrival + one departure at a station.
+    // Handlings at a station = max(arrivals, departures).
+    var stations = [], cnt = {};
+    function bump(c, k) { if (!c) return; if (!cnt[c]) { cnt[c] = { arr: 0, dep: 0 }; stations.push(c); } cnt[c][k]++; }
+    secs.forEach(function (s) { bump(s.from, "dep"); bump(s.to, "arr"); });
+    var gh = stations.map(function (c) {
+      var r = ghRate(c), n = Math.max(cnt[c].arr, cnt[c].dep);
+      return { code: c, city: r.city, rate: r.amount, arr: cnt[c].arr, dep: cnt[c].dep, qty: n, amount: r.amount * n, on: !state.ghOff[c] };
+    });
     var ghTotal = gh.reduce(function (t, g) { return t + (g.on ? g.amount : 0); }, 0);
 
     var lbt = state.lbtOn ? state.days * ac.lbt : 0;
@@ -564,7 +570,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     $("gh-lines").innerHTML = c.gh.length ? c.gh.map(function (g) {
       return '<div class="line' + (g.on ? "" : " off") + '">' +
         '<label class="switch"><input type="checkbox" id="gh-' + esc(g.code) + '" data-gh="' + esc(g.code) + '"' + (g.on ? " checked" : "") + ' aria-label="Charge ground handling at ' + esc(g.code) + '"><i></i></label>' +
-        '<div class="lbl"><b>Ground handling · <span class="mono">' + esc(g.code) + "</span></b><small>" + esc(AP[g.code] ? AP[g.code][0] : "Unlisted airport") + " · " + (g.city === "Other" ? "standard rate" : g.city + " rate") + "</small></div>" +
+        '<div class="lbl"><b>Ground handling · <span class="mono">' + esc(g.code) + "</span>" + (g.qty > 1 ? " × " + g.qty : "") + "</b><small>" + esc(AP[g.code] ? AP[g.code][0] : "Unlisted airport") + " · " + g.arr + " arr / " + g.dep + " dep · " + g.qty + " × " + inr(g.rate) + (g.city === "Other" ? " (standard rate)" : " (" + g.city + " rate)") + "</small></div>" +
         '<div class="amt">' + inr(g.amount) + "</div></div>";
     }).join("") : '<p class="hint">Add sectors to see ground handling.</p>';
     $("lbt-line").innerHTML =
@@ -624,7 +630,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     L.push(b("Charges"));
     L.push("Flying: " + hrs(c.totalMin) + " hrs × " + inr(c.ac.rate) + " = " + inr(c.flying));
     var ghOn = c.gh.filter(function (g) { return g.on; });
-    if (ghOn.length) L.push("Ground handling (" + ghOn.map(function (g) { return g.code; }).join(", ") + "): " + inr(c.ghTotal));
+    if (ghOn.length) L.push("Ground handling (" + ghOn.map(function (g) { return g.code + (g.qty > 1 ? " ×" + g.qty : ""); }).join(", ") + "): " + inr(c.ghTotal));
     if (state.lbtOn) L.push("Crew LBT: " + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + " = " + inr(c.lbt));
     c.extras.forEach(function (x) { L.push((x.label.trim() || "Other charges") + ": " + inr(x.amount)); });
     L.push("");
@@ -648,7 +654,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     var rows = [];
     rows.push(['Flying time<small>' + c.secs.filter(function (s) { return s.min; }).length + " sector(s) · " + hm(c.totalMin) + " = " + hrs(c.totalMin) + " hrs × " + inr(c.ac.rate) + "</small>", inr(c.flying)]);
     var ghOn = c.gh.filter(function (g) { return g.on; });
-    rows.push(["Ground handling<small>" + (ghOn.length ? ghOn.map(function (g) { return g.code + " " + inr(g.amount); }).join(" · ") : "None") + "</small>", inr(c.ghTotal)]);
+    rows.push(["Ground handling<small>" + (ghOn.length ? ghOn.map(function (g) { return g.code + (g.qty > 1 ? " ×" + g.qty : "") + " " + inr(g.amount); }).join(" · ") : "None") + "</small>", inr(c.ghTotal)]);
     if (state.lbtOn) rows.push(["Crew LBT<small>" + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + "</small>", inr(c.lbt)]);
     c.extras.forEach(function (x) { rows.push([esc(x.label.trim() || "Other charges"), inr(x.amount)]); });
     var html = rows.map(function (r) { return '<div class="q-line"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + "</div></div>"; }).join("");
