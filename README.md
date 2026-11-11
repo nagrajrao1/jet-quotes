@@ -11,7 +11,7 @@ A one-page quotation builder for the charter team. Open `index.html` in any brow
 - **Other charges**: free-form lines (catering, permits, positioning).
 - **Totals**: subtotal, GST @ 18% shown separately, grand total.
 - **Copy for WhatsApp** (with *bold*) or **Copy for email** (plain text).
-- **Rates & settings**: edit hourly rates, LBT, handling and the block-time formula. Saved in that browser; "Reset" restores standard rates.
+- **Rates & settings**: edit hourly rates, LBT, handling and the block-time formula. Changes apply to the current quote only; **New quote** (or reloading the page) always starts from the standard rates.
 
 ## Editing
 Edit `src/quote-desk.html`, then run `./build.sh` to regenerate `index.html`. Standard rates live in the `DEFAULTS` object at the top of the script.

@@ -276,7 +276,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       <!-- Settings -->
       <section class="panel">
         <details class="settings" id="settings">
-          <summary><div><h2 style="font-size:16px">Rates &amp; settings</h2><p class="hint">Update hourly rates when fuel prices change. Saved in this browser.</p></div></summary>
+          <summary><div><h2 style="font-size:16px">Rates &amp; settings</h2><p class="hint">Adjust rates for this quote only. New quote restores the standard rates.</p></div></summary>
           <div class="set-body">
             <div class="tbl-wrap">
               <table class="set" id="set-ac">
@@ -399,12 +399,10 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   /* ---------- Settings (per browser) ---------- */
   var KEY = "jqd-settings-v1";
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  // Rate changes apply to the current quote only. Every new quote (and every page load) starts from DEFAULTS.
   var S = clone(DEFAULTS);
-  try {
-    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved && saved.aircraft && saved.gh) S = Object.assign(clone(DEFAULTS), saved);
-  } catch (e) {}
-  function saveSettings() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  try { localStorage.removeItem(KEY); } catch (e) {} // clear rates saved by older versions
+  function saveSettings() {}
 
   /* ---------- Helpers ---------- */
   var $ = function (id) { return document.getElementById(id); };
@@ -708,7 +706,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     saveSettings(); renderSpecs(); refresh();
   });
   $("set-reset").addEventListener("click", function () {
-    S = clone(DEFAULTS); try { localStorage.removeItem(KEY); } catch (e) {}
+    S = clone(DEFAULTS);
     renderSettings(); renderSpecs(); refresh(); toast("Standard rates restored");
   });
 
@@ -784,8 +782,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 
   $("btn-new").addEventListener("click", function () {
     state = freshState();
+    S = clone(DEFAULTS);
     state.sectors = [{ from: "", to: "", date: state.start, bt: "" }];
-    renderAll(); toast("New quote started"); var el = $("s0-from"); if (el) el.focus();
+    renderAll(); toast("New quote started with standard rates"); var el = $("s0-from"); if (el) el.focus();
   });
 
   /* ---------- Copy ---------- */
