@@ -352,6 +352,24 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   var GH_CITY = { BOM: "Mumbai", NMI: "Mumbai", DEL: "Delhi", AMD: "Ahmedabad", JAI: "Jaipur" };
   var GST_RATE = 0.18;
 
+  // Fixed block times (minutes) set by the charter team, per aircraft.
+  // They replace the distance-based estimate for that aircraft, in both directions.
+  // Add more as "FROM-TO": minutes under the aircraft (NDA, ZST, APL).
+  var FIXED_BT = {
+    NDA: {
+      "AMD-NAG": 90,
+      "NAG-BOM": 90
+    },
+    ZST: {},
+    APL: {}
+  };
+  function fixedBT(acKey, a, b) {
+    var t = FIXED_BT[acKey] || {};
+    if (t[a + "-" + b] != null) return t[a + "-" + b];
+    if (t[b + "-" + a] != null) return t[b + "-" + a];
+    return null;
+  }
+
   // IATA: [city / airport, lat, lon]
   var AP = {
     BOM:["Mumbai",19.0887,72.8679], NMI:["Navi Mumbai",18.9950,73.0700], DEL:["Delhi",28.5562,77.1000],
@@ -472,9 +490,11 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       var r = Math.max(1, Number(S.round) || 1);
       out.est = Math.ceil(raw / r) * r;
     }
+    var fx = (a && b) ? fixedBT(state.aircraft, a, b) : null;
+    if (fx !== null) { out.est = fx; out.fixed = true; }
     var ov = parseBT(s.bt);
     if (ov !== null && !isNaN(ov) && ov > 0) { out.min = ov; out.mode = "manual"; }
-    else if (out.est !== null) { out.min = out.est; out.mode = "est"; }
+    else if (out.est !== null) { out.min = out.est; out.mode = out.fixed ? "fixed" : "est"; }
     else if (a && b && a === b) out.mode = "same";
     else if (a && b) out.mode = "unknown";
     if (ov !== null && isNaN(ov)) out.badBT = true;
@@ -555,8 +575,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       bt.placeholder = s.est !== null ? hm(s.est).replace("h ", ":").replace("m", "") : "h:mm";
       var parts = [];
       if (s.dist !== null) parts.push('<span class="mono">' + Math.round(s.dist) + " NM</span>");
-      if (s.mode === "est") parts.push('<span class="chip"><span class="dot"></span>Est. ' + hm(s.min) + "</span>");
-      else if (s.mode === "manual") parts.push('<span class="chip manual"><span class="dot"></span>Manual ' + hm(s.min) + "</span>" + (s.est !== null ? "<span>auto was " + hm(s.est) + "</span>" : ""));
+      if (s.mode === "fixed") parts.push('<span class="chip"><span class="dot"></span>Standard ' + hm(s.min) + "</span>");
+      else if (s.mode === "est") parts.push('<span class="chip"><span class="dot"></span>Est. ' + hm(s.min) + "</span>");
+      else if (s.mode === "manual") parts.push('<span class="chip manual"><span class="dot"></span>Manual ' + hm(s.min) + "</span>" + (s.est !== null ? "<span>" + (s.fixed ? "standard is " : "auto was ") + hm(s.est) + "</span>" : ""));
       else if (s.mode === "unknown") parts.push('<span class="chip warn"><span class="dot"></span>Enter block time</span>');
       else if (s.mode === "same") parts.push('<span class="chip warn"><span class="dot"></span>Same airport</span>');
       else parts.push("<span>Add both airports</span>");
