@@ -177,6 +177,9 @@ select { appearance: none; padding-right: 34px; background-image: linear-gradien
 .q-total .eyebrow { color: var(--brass); }
 .q-total .big { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4vw, 36px); color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; overflow-wrap: anywhere; }
 .q-total small { color: var(--muted); font-size: 12px; }
+.q-after { padding: 0 20px 12px; display: grid; }
+.q-after .q-line { padding: 5px 0; }
+.q-after .q-line .k, .q-after .q-line .v { font-weight: 400; }
 .q-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
 .q-preview { border-top: 1px solid var(--line); background: var(--surface-2); }
 .q-preview summary { cursor: pointer; padding: 12px 20px; font-weight: 600; font-size: 13px; color: var(--muted); }
@@ -312,9 +315,13 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       <div class="q-body" id="q-body"></div>
       <div class="alerts" id="q-alerts"></div>
       <div class="q-total">
-        <span class="eyebrow">Grand total incl. GST</span>
-        <div class="big" id="q-grand">₹0</div>
-        <small id="q-grand-words"></small>
+        <span class="eyebrow">Subtotal (excl. GST)</span>
+        <div class="big" id="q-subtotal">₹0</div>
+        <small id="q-sub-words"></small>
+      </div>
+      <div class="q-after">
+        <div class="q-line"><div class="k">GST @ 18%</div><div class="v" id="q-gst">₹0</div></div>
+        <div class="q-line"><div class="k">Grand total incl. GST</div><div class="v" id="q-grand">₹0</div></div>
       </div>
       <div class="q-actions">
         <button class="btn primary" id="copy-wa" type="button">Copy for WhatsApp</button>
@@ -653,9 +660,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     if (state.lbtOn) L.push("Crew LBT: " + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + " = " + inr(c.lbt));
     c.extras.forEach(function (x) { L.push((x.label.trim() || "Other charges") + ": " + inr(x.amount)); });
     L.push("");
-    L.push("Subtotal: " + inr(c.subtotal));
+    L.push(b("SUBTOTAL: " + inr(c.subtotal)));
     L.push("GST @ 18%: " + inr(c.gst));
-    L.push(b("Grand total: " + inr(c.grand)));
+    L.push("Grand total incl. GST: " + inr(c.grand));
     L.push("");
     L.push("Flying time is estimated and billed on actual block hours. Quote subject to aircraft availability and slot/ATC approvals.");
     return L.join("\n");
@@ -677,12 +684,12 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     if (state.lbtOn) rows.push(["Crew LBT<small>" + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + "</small>", inr(c.lbt)]);
     c.extras.forEach(function (x) { rows.push([esc(x.label.trim() || "Other charges"), inr(x.amount)]); });
     var html = rows.map(function (r) { return '<div class="q-line"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + "</div></div>"; }).join("");
-    html += '<div class="q-line sub"><div class="k">Subtotal</div><div class="v">' + inr(c.subtotal) + "</div></div>";
-    html += '<div class="q-line"><div class="k">GST @ 18%</div><div class="v">' + inr(c.gst) + "</div></div>";
     $("q-body").innerHTML = html;
     $("q-alerts").innerHTML = c.alerts.map(function (a) { return '<div class="alert">' + esc(a) + "</div>"; }).join("");
+    $("q-subtotal").textContent = inr(c.subtotal);
+    $("q-sub-words").textContent = words(c.subtotal) || "GST shown separately below";
+    $("q-gst").textContent = inr(c.gst);
     $("q-grand").textContent = inr(c.grand);
-    $("q-grand-words").textContent = [words(c.grand), "Subtotal " + inr(c.subtotal) + " + GST " + inr(c.gst)].filter(Boolean).join(" · ");
     $("q-text").textContent = buildText(c, true);
   }
 
