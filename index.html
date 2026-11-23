@@ -528,7 +528,8 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     });
     var ghTotal = gh.reduce(function (t, g) { return t + (g.on ? g.amount : 0); }, 0);
 
-    var lbt = state.lbtOn ? state.days * ac.lbt : 0;
+    var hasTrip = !!state.start || totalMin > 0; // nothing to charge on an empty quote
+    var lbt = (state.lbtOn && hasTrip) ? state.days * ac.lbt : 0;
     var extras = state.extras.filter(function (x) { return Number(x.amount) > 0; });
     var extraTotal = extras.reduce(function (t, x) { return t + Number(x.amount); }, 0);
     var subtotal = flying + ghTotal + lbt + extraTotal;
@@ -781,6 +782,8 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   $("d-start").addEventListener("change", function (e) {
     var old = fromISO(state.start); state.start = e.target.value;
     if (state.start && (!state.end || !old)) state.end = toISO(addDays(fromISO(state.start), state.days - 1));
+    // On a fresh quote, give the first sector the trip's start date.
+    if (state.start && state.sectors[0] && !state.sectors[0].date) { state.sectors[0].date = state.start; renderStrips(); }
     syncDays();
   });
   $("d-end").addEventListener("change", function (e) { state.end = e.target.value; syncDays(); });
@@ -812,9 +815,16 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   });
 
   $("btn-new").addEventListener("click", function () {
+    // Wipe everything from the previous quote: client, sectors, block times,
+    // dates, day count, handling switches, extra charges and rate changes.
     state = freshState();
     S = clone(DEFAULTS);
-    state.sectors = [{ from: "", to: "", date: state.start, bt: "" }];
+    state.client = "";
+    state.sectors = [{ from: "", to: "", date: "", bt: "" }];
+    state.start = ""; state.end = ""; state.days = 1;
+    state.lbtOn = true; state.ghOff = {}; state.extras = [];
+    $("settings").open = false; $("q-preview-d").open = false;
+    try { window.getSelection().removeAllRanges(); } catch (e) {}
     renderAll(); toast("New quote started with standard rates"); var el = $("s0-from"); if (el) el.focus();
   });
 
