@@ -235,7 +235,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       <!-- Sectors -->
       <section class="panel" aria-labelledby="h-sec">
         <div class="panel-head"><h2 id="h-sec">Sectors</h2><span class="eyebrow">Step 2</span></div>
-        <p class="hint">Type an airport code (BOM, DEL…) or a city name. Block time is estimated from the great‑circle distance and the aircraft's cruise speed. Type over it (e.g. <span class="mono">2:10</span>) if ops gives you a different figure.</p>
+        <p class="hint">Type an airport code (BOM, DEL…) or a city name. Block time is estimated from the great‑circle distance and the aircraft's cruise speed. Type over it if ops gives you a different figure: <span class="mono">1.50</span> or <span class="mono">1:50</span> both mean 1 h 50 min.</p>
         <div class="strips" id="strips"></div>
         <button class="btn dashed" id="add-sector" type="button">+ Add new sector</button>
         <datalist id="airports"></datalist>
@@ -358,7 +358,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   var FIXED_BT = {
     NDA: {
       "AMD-NAG": 90,
-      "NAG-BOM": 90
+      "NAG-BOM": 90,
+      "BOM-ATQ": 195,
+      "ATQ-DEL": 70
     },
     ZST: {},
     APL: {}
@@ -451,10 +453,11 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   function parseBT(s) {
     s = String(s || "").trim();
     if (!s) return null;
-    var m = s.match(/^(\d{1,2})\s*[:h.]\s*(\d{1,2})\s*m?$/i);
-    if (m && s.indexOf(".") === -1) return (+m[1]) * 60 + (+m[2]);
-    if (/^\d+(\.\d+)?$/.test(s)) return Math.round(parseFloat(s) * 60); // decimal hours
-    if (m) return (+m[1]) * 60 + (+m[2]);
+    // Hours and minutes: "1:50", "1.50", "1h50", "1h 50m" all mean 1 h 50 min. "2" means 2 h.
+    // Minutes must be two digits (1.05, not 1.5) so 1.5 is never misread.
+    var m = s.match(/^(\d{1,2})\s*[:.h]\s*(\d{2})\s*m?$/i);
+    if (m && +m[2] < 60) return (+m[1]) * 60 + (+m[2]);
+    if (/^\d{1,2}\s*h?$/i.test(s)) return parseInt(s, 10) * 60;
     return NaN;
   }
   function ghRate(code) {
@@ -527,7 +530,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     secs.forEach(function (s, i) {
       if (s.mode === "unknown") alerts.push("Sector " + (i + 1) + ": " + s.from + " or " + s.to + " isn't in the airport list. Type the block time manually.");
       if (s.mode === "same") alerts.push("Sector " + (i + 1) + ": departure and arrival are the same airport.");
-      if (s.badBT) alerts.push("Sector " + (i + 1) + ": block time should look like 2:10 (h:mm) or 2.2 (decimal hours).");
+      if (s.badBT) alerts.push("Sector " + (i + 1) + ": type block time as hours and two-digit minutes, e.g. 1.50 or 1:50 (use 1.05 for 1 h 5 min).");
     });
     return { ac: ac, secs: secs, totalMin: totalMin, flying: flying, gh: gh, ghTotal: ghTotal, lbt: lbt, extras: extras, extraTotal: extraTotal, subtotal: subtotal, gst: gst, grand: subtotal + gst, alerts: alerts };
   }
