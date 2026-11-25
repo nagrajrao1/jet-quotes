@@ -102,25 +102,24 @@ select { appearance: none; padding-right: 34px; background-image: linear-gradien
 
 /* Sector strips */
 .strips { display: grid; gap: 10px; }
-.strip { display: grid; grid-template-columns: 30px minmax(0, 1fr) 24px minmax(0, 1fr) minmax(0, 140px) minmax(0, 104px) minmax(0, 104px) 34px; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); }
+.strip { display: grid; grid-template-columns: 30px minmax(0, 1fr) 24px minmax(0, 1fr) minmax(0, 140px) minmax(0, 150px) 34px; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); }
 .strip .seq, .strip .arrow { margin-top: 33px; }
 .strip .del { margin-top: 27px; }
 .strip .seq { font-family: var(--f-mono); font-weight: 700; color: var(--accent); font-size: 13px; text-align: center; }
 .strip .arrow { color: var(--muted); text-align: center; }
 .strip input.code { font-family: var(--f-mono); font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: .04em; background: var(--surface); }
 .strip input[type="date"], .strip input.bt { background: var(--surface); }
-.strip input.blk { background: var(--brass-soft); border-color: var(--brass); }
 .strip .city { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 17px; }
 .strip .meta { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
 .strip .bt-wrap { display: grid; gap: 6px; }
 .strip .bt-wrap > span, .strip label.field > span { font-size: 11px; }
 @media (max-width: 720px) {
   .strip { grid-template-columns: 26px minmax(0, 1fr) 18px minmax(0, 1fr) 34px; }
-  .strip .date-f { grid-column: 2 / 5; grid-row: 2; }
-  .strip .bt-wrap { grid-column: 2 / 3; grid-row: 3; }
-  .strip .blk-wrap { grid-column: 4 / 5; grid-row: 3; }
+  .strip .date-f { grid-column: 2 / 3; }
+  .strip .bt-wrap { grid-column: 4 / 5; }
   .strip .del { grid-row: 1; grid-column: 5; }
-  .strip .meta { grid-row: 4; }
+  .strip .date-f, .strip .bt-wrap { grid-row: 2; }
+  .strip .meta { grid-row: 3; }
 }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
 .chip.manual { background: var(--brass-soft); color: var(--brass); }
@@ -130,6 +129,11 @@ select { appearance: none; padding-right: 34px; background-image: linear-gradien
 /* Dates */
 .dates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
 @media (max-width: 560px) { .dates { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .counter-f { grid-column: 1 / -1; } }
+.blk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+@media (max-width: 560px) { .blk-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } #blk-reset { grid-column: 1 / -1; } }
+#blk-input { font-size: 16px; font-weight: 700; background: var(--brass-soft); border-color: var(--brass); }
+#blk-input:placeholder-shown { background: var(--surface-2); border-color: var(--line); }
+.blk-diff { font-weight: 600; color: var(--brass); }
 .counter { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
 .counter button { font: inherit; font-size: 18px; width: 40px; height: 40px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .counter button:hover { background: var(--accent-soft); color: var(--accent); }
@@ -237,7 +241,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       <section class="panel" aria-labelledby="h-sec">
         <div class="panel-head"><h2 id="h-sec">Sectors</h2><span class="eyebrow">Step 2</span></div>
         <p class="hint">Type an airport code (BOM, DEL…) or a city name. Block time is estimated from the great‑circle distance and the aircraft's cruise speed. Type over it if ops gives you a different figure: <span class="mono">1.50</span> or <span class="mono">1:50</span> both mean 1 h 50 min.</p>
-        <p class="hint"><b>Block hours</b> are what the client is billed for. They copy the flying time unless you type your own figure.</p>
         <div class="strips" id="strips"></div>
         <button class="btn dashed" id="add-sector" type="button">+ Add new sector</button>
         <datalist id="airports"></datalist>
@@ -261,8 +264,20 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       </section>
 
       <!-- Charges -->
+      <section class="panel" aria-labelledby="h-blk">
+        <div class="panel-head"><h2 id="h-blk">Block hours</h2><span class="eyebrow">Step 4</span></div>
+        <div class="blk-grid">
+          <div class="spec"><span>Total flying time (sectors)</span><b id="blk-flying">0h 00m</b></div>
+          <label class="field"><span>Block hours billed</span>
+            <input id="blk-input" class="mono" inputmode="decimal" autocomplete="off" placeholder="0:00">
+          </label>
+          <button class="btn" id="blk-reset" type="button">Use flying time</button>
+        </div>
+        <p class="hint" id="blk-note">Filled with the total flying time. Type a different figure (<span class="mono">4.10</span> or <span class="mono">4:10</span>) if block hours change from the standard. The flying cost is billed on this figure.</p>
+      </section>
+
       <section class="panel" aria-labelledby="h-chg">
-        <div class="panel-head"><h2 id="h-chg">Ground handling &amp; crew</h2><span class="eyebrow">Step 4</span></div>
+        <div class="panel-head"><h2 id="h-chg">Ground handling &amp; crew</h2><span class="eyebrow">Step 5</span></div>
         <p class="hint">Calculated automatically from the sectors and blocked days. One handling covers one arrival and one departure at an airport, so a station used twice is charged twice. Switch off anything that doesn't apply, such as handling at your home base.</p>
         <div class="lines" id="gh-lines"></div>
         <div class="lines" id="lbt-line"></div>
@@ -476,11 +491,11 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       ref: "Q-" + toISO(new Date()).replace(/-/g, "").slice(2) + "-" + String(Math.floor(Math.random() * 900) + 100),
       aircraft: "ZST", client: "",
       sectors: [
-        { from: "BOM", to: "DEL", date: toISO(start), bt: "", blk: "" },
-        { from: "DEL", to: "BOM", date: toISO(end), bt: "", blk: "" }
+        { from: "BOM", to: "DEL", date: toISO(start), bt: "" },
+        { from: "DEL", to: "BOM", date: toISO(end), bt: "" }
       ],
       start: toISO(start), end: toISO(end), days: 3,
-      lbtOn: true, ghOff: {}, extras: []
+      blockHrs: "", lbtOn: true, ghOff: {}, extras: []
     };
   }
   state = freshState();
@@ -503,11 +518,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     else if (a && b && a === b) out.mode = "same";
     else if (a && b) out.mode = "unknown";
     if (ov !== null && isNaN(ov)) out.badBT = true;
-    // Block hours (billed): typed figure, otherwise the flying time.
-    var bk = parseBT(s.blk);
-    if (bk !== null && !isNaN(bk) && bk > 0) { out.block = bk; out.blockManual = true; }
-    else out.block = out.min;
-    if (bk !== null && isNaN(bk)) out.badBlk = true;
     return out;
   }
 
@@ -515,7 +525,11 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     var ac = S.aircraft[state.aircraft];
     var secs = state.sectors.map(sectorCalc);
     var totalMin = secs.reduce(function (t, s) { return t + (s.min || 0); }, 0);
-    var blockMin = secs.reduce(function (t, s) { return t + (s.block || 0); }, 0);
+    // Block hours (billed): the figure typed in the Block hours panel, otherwise total flying time.
+    var bk = parseBT(state.blockHrs), blockManual = false, badBlk = false;
+    var blockMin = totalMin;
+    if (bk !== null && !isNaN(bk) && bk > 0) { blockMin = bk; blockManual = true; }
+    else if (bk !== null && isNaN(bk)) badBlk = true;
     var flying = (blockMin / 60) * ac.rate; // billed on block hours
 
     // One ground handling = one arrival + one departure at a station.
@@ -539,10 +553,10 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     secs.forEach(function (s, i) {
       if (s.mode === "unknown") alerts.push("Sector " + (i + 1) + ": " + s.from + " or " + s.to + " isn't in the airport list. Type the block time manually.");
       if (s.mode === "same") alerts.push("Sector " + (i + 1) + ": departure and arrival are the same airport.");
-      if (s.badBlk) alerts.push("Sector " + (i + 1) + ": type block hours as hours and two-digit minutes, e.g. 2.10 or 2:10.");
       if (s.badBT) alerts.push("Sector " + (i + 1) + ": type block time as hours and two-digit minutes, e.g. 1.50 or 1:50 (use 1.05 for 1 h 5 min).");
     });
-    return { ac: ac, secs: secs, totalMin: totalMin, blockMin: blockMin, flying: flying, gh: gh, ghTotal: ghTotal, lbt: lbt, extras: extras, extraTotal: extraTotal, subtotal: subtotal, gst: gst, grand: subtotal + gst, alerts: alerts };
+    if (badBlk) alerts.push("Block hours: type hours and two-digit minutes, e.g. 4.10 or 4:10. Billing flying time until fixed.");
+    return { ac: ac, secs: secs, totalMin: totalMin, blockMin: blockMin, blockManual: blockManual, flying: flying, gh: gh, ghTotal: ghTotal, lbt: lbt, extras: extras, extraTotal: extraTotal, subtotal: subtotal, gst: gst, grand: subtotal + gst, alerts: alerts };
   }
 
   /* ---------- Rendering ---------- */
@@ -573,7 +587,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
         '<label class="field"><span>To</span><input class="code" id="s' + i + '-to" data-f="to" list="airports" value="' + esc(s.to) + '" placeholder="DEL" autocomplete="off" spellcheck="false"><div class="city" id="s' + i + '-toc"></div></label>' +
         '<label class="field date-f"><span>Date</span><input type="date" id="s' + i + '-date" data-f="date" value="' + esc(s.date) + '"></label>' +
         '<label class="field bt-wrap"><span>Flying time</span><input class="bt mono" id="s' + i + '-bt" data-f="bt" value="' + esc(s.bt) + '" placeholder="auto" inputmode="decimal" autocomplete="off"></label>' +
-        '<label class="field bt-wrap blk-wrap"><span>Block hours</span><input class="bt blk mono" id="s' + i + '-blk" data-f="blk" value="' + esc(s.blk || "") + '" placeholder="auto" inputmode="decimal" autocomplete="off"></label>' +
         '<button class="icon-btn del" type="button" data-del="' + i + '" aria-label="Remove sector ' + (i + 1) + '"' + (only ? " disabled" : "") + '>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
         '<div class="meta" id="s' + i + '-meta"></div>' +
@@ -587,8 +600,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       fc.textContent = AP[s.from] ? AP[s.from][0] : (s.from ? "Not in list" : "");
       tc.textContent = AP[s.to] ? AP[s.to][0] : (s.to ? "Not in list" : "");
       bt.placeholder = s.est !== null ? hm(s.est).replace("h ", ":").replace("m", "") : "h:mm";
-      var blk = $("s" + i + "-blk");
-      if (blk) blk.placeholder = s.min ? hm(s.min).replace("h ", ":").replace("m", "") : "h:mm";
       var parts = [];
       if (s.dist !== null) parts.push('<span class="mono">' + Math.round(s.dist) + " NM</span>");
       if (s.mode === "fixed") parts.push('<span class="chip"><span class="dot"></span>Standard ' + hm(s.min) + "</span>");
@@ -597,9 +608,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       else if (s.mode === "unknown") parts.push('<span class="chip warn"><span class="dot"></span>Enter block time</span>');
       else if (s.mode === "same") parts.push('<span class="chip warn"><span class="dot"></span>Same airport</span>');
       else parts.push("<span>Add both airports</span>");
-      if (s.blockManual) parts.push('<span class="chip manual"><span class="dot"></span>Block ' + hm(s.block) + "</span>");
-      else if (s.block) parts.push("<span>Block " + hm(s.block) + " (same as flying)</span>");
-      if (s.block) parts.push('<span class="mono">' + inr((s.block / 60) * c.ac.rate) + "</span>");
+      if (s.min) parts.push('<span class="mono">' + inr((s.min / 60) * c.ac.rate) + "</span>");
       meta.innerHTML = parts.join("");
     });
   }
@@ -661,7 +670,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       var d = state.sectors[i].date ? fmtDate(state.sectors[i].date, false) + "  " : "";
       var nameF = AP[s.from] ? " (" + AP[s.from][0] + ")" : "", nameT = AP[s.to] ? " (" + AP[s.to][0] + ")" : "";
       var t = s.min ? hm(s.min) : "TBC";
-      if (s.blockManual) t = "Flying " + t + " / Block " + hm(s.block);
       L.push((i + 1) + ". " + d + (s.from || "—") + nameF + " → " + (s.to || "—") + nameT + "  ·  " + t);
     });
     L.push("Total flying time: " + hm(c.totalMin) + " (" + hrs(c.totalMin) + " hrs)");
@@ -692,7 +700,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     $("q-sub").textContent = sub.join(" · ");
 
     var rows = [];
-    rows.push(['Flying cost<small>' + c.secs.filter(function (s) { return s.block; }).length + " sector(s) · flying " + hm(c.totalMin) + " · block " + hm(c.blockMin) + " = " + hrs(c.blockMin) + " hrs × " + inr(c.ac.rate) + "</small>", inr(c.flying)]);
+    rows.push(['Flying cost<small>' + c.secs.filter(function (s) { return s.min; }).length + " sector(s) · flying " + hm(c.totalMin) + " · block " + hm(c.blockMin) + " = " + hrs(c.blockMin) + " hrs × " + inr(c.ac.rate) + "</small>", inr(c.flying)]);
     var ghOn = c.gh.filter(function (g) { return g.on; });
     rows.push(["Ground handling<small>" + (ghOn.length ? ghOn.map(function (g) { return g.code + (g.qty > 1 ? " ×" + g.qty : "") + " " + inr(g.amount); }).join(" · ") : "None") + "</small>", inr(c.ghTotal)]);
     if (state.lbtOn) rows.push(["Crew LBT<small>" + state.days + " day" + (state.days > 1 ? "s" : "") + " × " + inr(c.ac.lbt) + "</small>", inr(c.lbt)]);
@@ -707,14 +715,29 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     $("q-text").textContent = buildText(c, true);
   }
 
+  function renderBlock(c) {
+    $("blk-flying").textContent = hm(c.totalMin);
+    var inp = $("blk-input");
+    inp.placeholder = hm(c.totalMin).replace("h ", ":").replace("m", "");
+    if (document.activeElement !== inp && inp.value !== state.blockHrs) inp.value = state.blockHrs;
+    var note = $("blk-note");
+    if (c.blockManual) {
+      var d = c.blockMin - c.totalMin;
+      note.innerHTML = 'Billing <b class="mono">' + hm(c.blockMin) + '</b> block hours <span class="blk-diff">(' + (d >= 0 ? "+" : "−") + hm(Math.abs(d)) + " vs flying time)</span>. Clear the box or press <b>Use flying time</b> to go back.";
+    } else {
+      note.innerHTML = 'Billing the total flying time of <b class="mono">' + hm(c.totalMin) + '</b>. Type a different figure (<span class="mono">4.10</span> or <span class="mono">4:10</span>) if block hours change from the standard.';
+    }
+  }
   function refresh() {
     var c = compute();
+    renderBlock(c);
     updateStripMeta(c);
     renderCharges(c);
     renderQuote(c);
   }
   function renderAll() {
     renderAircraftSelect(); renderSpecs(); renderStrips(); renderExtras(); renderDays();
+    $("blk-input").value = state.blockHrs || "";
     $("client").value = state.client;
     renderSettings();
     refresh();
@@ -776,7 +799,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     var last = state.sectors[state.sectors.length - 1];
     var from = last ? resolve(last.to) : "";
     var date = last && last.date ? last.date : state.start;
-    state.sectors.push({ from: from, to: "", date: date || "", bt: "", blk: "" });
+    state.sectors.push({ from: from, to: "", date: date || "", bt: "" });
     renderStrips(); refresh();
     var el = $("s" + (state.sectors.length - 1) + (from ? "-to" : "-from")); if (el) el.focus();
   });
@@ -802,6 +825,8 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     if (state.start) state.end = toISO(addDays(fromISO(state.start), state.days - 1));
     renderDays(); refresh();
   }
+  $("blk-input").addEventListener("input", function (e) { state.blockHrs = e.target.value; refresh(); });
+  $("blk-reset").addEventListener("click", function () { state.blockHrs = ""; $("blk-input").value = ""; refresh(); });
   $("d-minus").addEventListener("click", function () { step(-1); });
   $("d-plus").addEventListener("click", function () { step(1); });
 
@@ -830,9 +855,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     state = freshState();
     S = clone(DEFAULTS);
     state.client = "";
-    state.sectors = [{ from: "", to: "", date: "", bt: "", blk: "" }];
+    state.sectors = [{ from: "", to: "", date: "", bt: "" }];
     state.start = ""; state.end = ""; state.days = 1;
-    state.lbtOn = true; state.ghOff = {}; state.extras = [];
+    state.blockHrs = ""; state.lbtOn = true; state.ghOff = {}; state.extras = [];
     $("settings").open = false; $("q-preview-d").open = false;
     try { window.getSelection().removeAllRanges(); } catch (e) {}
     renderAll(); toast("New quote started with standard rates"); var el = $("s0-from"); if (el) el.focus();

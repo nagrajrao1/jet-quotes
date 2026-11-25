@@ -7,7 +7,7 @@ A one-page quotation builder for the charter team. Open `index.html` in any brow
 - **Sectors**: type IATA codes or city names, `+ Add new sector` chains from the last arrival. Block time is estimated per sector:
   `great-circle NM × 1.08 routing ÷ cruise speed + 15 min taxi/climb/descent`, rounded up to 5 min. Type over it when ops gives a firm figure: `1.50` or `1:50` both mean 1 h 50 min (minutes always two digits, e.g. `1.05`).
 - **Standard sector times**: sectors listed in `FIXED_BT` in `src/quote-desk.html` use the team's set block time instead of the estimate, per aircraft and in both directions (currently VT-NDA: AMD↔NAG 1h 30m, NAG↔BOM 1h 30m, BOM↔ATQ 3h 15m, ATQ↔DEL 1h 10m). They show a "Standard" tag and can still be typed over.
-- **Block hours (billed)**: each sector has a Block hours box next to Flying time. It copies the flying time unless you type your own figure; the flying cost is block hours × hourly rate.
+- **Block hours (billed)**: a separate Block hours panel, filled with the total flying time of all sectors. Type a different total if block hours change from the standard; the flying cost is block hours × hourly rate.
 - **Ground handling**: one handling = one arrival + one departure at an airport. Handlings per airport = the larger of its arrivals and departures (BOM→DEL→BOM = 1 at BOM, 1 at DEL; BOM→DEL→BOM→GOI = 2 at BOM). Charged using Mumbai / Delhi / Ahmedabad / Jaipur / other-airport rates for large or light jets. Each station can be switched off (e.g. home base). Navi Mumbai (NMI) uses the Mumbai rate.
 - **Aircraft blocked**: from/to dates plus a +/− day counter (inclusive). Crew LBT = days × per-day rate, switchable.
 - **Other charges**: free-form lines (catering, permits, positioning).
